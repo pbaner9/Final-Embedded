@@ -17,11 +17,15 @@ extern "C" {
 
 typedef enum
 {
-	/* Application's state machine's initial state. */
-	MOTOR_STATE_INIT=0,
-	MOTOR_STATE_SERVICE_TASKS,
-            
-    Motor_Test_1,
+    /* Application's state machine's initial state. */
+    MOTOR_STATE_INIT=0,
+    MOTOR_STATE_SERVICE_TASKS,        
+    MotorMain,
+    MotorForward,
+    MotorBackward,
+    MotorLeft,
+    MotorRight,
+    MotorStop,
 
 } MOTOR_STATES;
 
@@ -30,10 +34,11 @@ typedef struct
     /* The application's current state */
     MOTOR_STATES state;
     QueueHandle_t myQueue;
+    TimerHandle_t myTimer;  // Creates a Timer for Motor Control
     /* TODO: Define any additional data used by the application. */
     char message[2];
     char type;
-    
+    int timerCount;
     uint8_t data; //direction data
     
 } MOTOR_DATA;

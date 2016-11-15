@@ -7,15 +7,20 @@
 #define PWM_MAX    10000   
 #define START_VALUE  9000
 
-//--------------------------------------------------------------//
-
+void timerCallbackFunction(TimerHandle_t myTimer)
+{
+    /* The number of times this timer has expired is saved as the
+    timer's ID.  Obtain the count. */
+    // TODO : Add a count Integer for Ticks.
+    // ulCount = ( uint32_t ) pvTimerGetTimerID( xTimer );
+    timerCount++;
+}
 
 void MOTOR_Initialize ( void )
 {
     //forcing to open up port up for output (apparently Harmony has a problem setting this port to output)
     PLIB_PORTS_PinDirectionOutputSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);   
-    
-    
+
     /* Place the App state machine in its initial state. */
     motorsData.state = MOTOR_STATE_INIT;
     motorsData.myQueue = xQueueCreate( 12, sizeof( char ) );
@@ -26,46 +31,33 @@ void MOTOR_Initialize ( void )
         // Need to make a function
         //break;
     }
-   
-   
-  
-    
-    /* TODO: Initialize your application's state machine and other
-     * parameters.
-     */
+    // Creation of Software Timer
+    appData.myTimer = xTimerCreate("krc",(50/portTICK_PERIOD_MS),pdTRUE,(void*)0,timerCallbackFunction);
+    motorsData.timerCount = 0; // Sets the value for Increment to increase once the timer is Created and Started
+    if(xTimerStart(appData.myTimer,10) != pdFAIL)  // Checks if Timer starts, if it does not will output Error Message
+    {
+        dbgOutputLoc('E');
+    }
 }
-
-
-/******************************************************************************
-  Function:
-    void MOTOR_Tasks ( void )
-
-  Remarks:
-    See prototype in motor.h.
- */
 
 void MOTOR_Tasks ( void )
 {
-
-    /* Check the application's current state. */
-    switch ( motorsData.state )
+    switch ( motorsData.state )  /* Check the application's current state. */
     {
-        /* Application's initial state. */
-        case MOTOR_STATE_INIT:
+        case MOTOR_STATE_INIT:    /* Application's initial state. */
         {
             bool appInitialized = true;
-       
-        
             if (appInitialized)
             {
-//                mainalgData.state =  Motor_Test_1;
-                motorsData.state = Motor_Test_1;
-            }
-            break;
+                // motorsData.state = MotorTestCase;  // Uncomment if showing Test case and comment out line below
+                motorsData.state = MotorMain;
+
+            }  break;
         }
-        
-        // This is a test where the stop symbol is not sent
-        case Motor_Test_1:
+        //Test Is Moved
+        // If required copy this and place back
+        // If asked for Error Test Cases
+        /*case MotorTestCase:
         {                 
             sendThroughQueue('~', uartData.motorthread); // 0
             sendThroughQueue('A', uartData.motorthread); // 1
@@ -78,23 +70,112 @@ void MOTOR_Tasks ( void )
             sendThroughQueue(0, uartData.motorthread); // 8 -- 0 for now
             sendThroughQueue(0, uartData.motorthread); // 9 -- 0 for now
             sendThroughQueue(0, uartData.motorthread); // 10 -- 0 for now
-            sendThroughQueue('*', uartData.motorthread); // 11
+            sendThroughQueue('*', uartData.motorthread); // 11 
+            motorsData.state = MotorMain;
+        }
+        */
+        case MotorMain:
+        {                 
+            // TODO:
+            // Redirect and If statements Propertly
+            // Add Code from UART for Server Commands
+            
+            //Remove
+            motorsData.direction = "L";
+            //
+            if (motorsData.direction == "L")
+            {
+                // Move to State for Left Direction
+                motorsData.state = MotorLeft;
+            }
+            else if (motorsData.direction == "R")
+            {
+                // Move to State for Right Direction
+                motorsData.state = MotorRight;
+            }
+            else if (motorsData.direction == "F")
+            {
+                // Move to State for Forward Direction
+                motorsData.state = MotorForward;
+            }
+            else if (motorsData.direction == "B")
+            {
+                // Move to State for Backwards Direction
+                motorsData.state = MotorBackward;
+            }
+            else if (motorsData.direction == "S")
+            {
+                // Move to State for Stopping the Vehicle
+                motorsData.state = MotorStop;
+            }
+            
+            break;
+        }
+        case MotorLeft:
+        {
+            // THis is where you will call your functions
+            // SUDO Code
+            // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
+            motorsData.timerCount= 0;
+            while (motorsData.timerCount < 100 )
+            {
+                moveleft();       
+            }
+            stopmotor();
+            
+            //Remove
+            motorsData.state = MOTOR_STATE_SERVICE_TASKS; 
+            //Remove
+            
+            //motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
+            break;
+        }
+        case MotorRight:
+        {
+            // THis is where you will call your functions
+            // SUDO Code
+            // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
+            stopmotor();
+            motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
+            break;
+        }
+        case MotorBackward:
+        {
+            // THis is where you will call your functions
+            // SUDO Code
+            // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
+            stopmotor();
+            motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
+            break;
+        }      
+        case MotorForward:
+        {
+            // THis is where you will call your functions
+            // SUDO Code
+            // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
+            stopmotor();
+            motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
+            break;
+        }
+            
+        case MotorStop:
+        {
+            // THis is where you will call your functions
+            // SUDO Code
+            // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
+            stopmotor();
+            motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
             break;
         }
 
+ 
         case MOTOR_STATE_SERVICE_TASKS:
         {
         
             break;
         }
-
-        /* TODO: implement your application state machine.*/
-        
-
-        /* The default state should never be executed. */
-        default:
+        default:  /* TODO: Handle error in application's state machine. */
         {
-            /* TODO: Handle error in application's state machine. */
             break;
         }
     }
