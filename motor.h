@@ -17,11 +17,15 @@ extern "C" {
 
 typedef enum
 {
-	/* Application's state machine's initial state. */
-	MOTOR_STATE_INIT=0,
-	MOTOR_STATE_SERVICE_TASKS,
-            
-    Motor_Test_1,
+    /* Application's state machine's initial state. */
+    MOTOR_STATE_INIT=0,
+    MOTOR_STATE_SERVICE_TASKS,        
+    MotorMain,
+    MotorForward,
+    MotorBackward,
+    MotorLeft,
+    MotorRight,
+    MotorStop,
 
 } MOTOR_STATES;
 
