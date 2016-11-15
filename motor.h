@@ -44,7 +44,7 @@ void stopmotor(void);
 void moveright(void);
 void moveleft(void);
 void moveforward(void);
-void movevback(void);
+void moveback(void);
 
 void MOTOR_Initialize ( void );
 void MOTOR_Tasks( void );
