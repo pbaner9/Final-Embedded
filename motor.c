@@ -7,15 +7,18 @@
 #define PWM_MAX    10000   
 #define START_VALUE  9000
 
-//--------------------------------------------------------------//
-
+void timerCallbackFunction(TimerHandle_t myTimer)
+{
+    /* The number of times this timer has expired is saved as the
+    timer's ID.  Obtain the count. */
+    ulCount = ( uint32_t ) pvTimerGetTimerID( xTimer );
+}
 
 void MOTOR_Initialize ( void )
 {
     //forcing to open up port up for output (apparently Harmony has a problem setting this port to output)
     PLIB_PORTS_PinDirectionOutputSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);   
-    
-    
+
     /* Place the App state machine in its initial state. */
     motorsData.state = MOTOR_STATE_INIT;
     motorsData.myQueue = xQueueCreate( 12, sizeof( char ) );
@@ -26,42 +29,25 @@ void MOTOR_Initialize ( void )
         // Need to make a function
         //break;
     }
-   
-   
-  
-    
-    /* TODO: Initialize your application's state machine and other
-     * parameters.
-     */
+    // Creation of Software Timer
+    appData.myTimer = xTimerCreate("krc",(50/portTICK_PERIOD_MS),pdTRUE,(void*)0,timerCallbackFunction);
+    if(xTimerStart(appData.myTimer,10) != pdFAIL)  // Checks if Timer starts, if it does not will output Error Message
+    {
+        dbgOutputLoc('E');
+    }
 }
-
-
-/******************************************************************************
-  Function:
-    void MOTOR_Tasks ( void )
-
-  Remarks:
-    See prototype in motor.h.
- */
 
 void MOTOR_Tasks ( void )
 {
-
-    /* Check the application's current state. */
-    switch ( motorsData.state )
+    switch ( motorsData.state )  /* Check the application's current state. */
     {
-        /* Application's initial state. */
-        case MOTOR_STATE_INIT:
+        case MOTOR_STATE_INIT:    /* Application's initial state. */
         {
             bool appInitialized = true;
-       
-        
             if (appInitialized)
             {
-//                mainalgData.state =  Motor_Test_1;
                 motorsData.state = Motor_Test_1;
-            }
-            break;
+            }  break;
         }
         
         // This is a test where the stop symbol is not sent
@@ -87,14 +73,8 @@ void MOTOR_Tasks ( void )
         
             break;
         }
-
-        /* TODO: implement your application state machine.*/
-        
-
-        /* The default state should never be executed. */
-        default:
+        default:  /* TODO: Handle error in application's state machine. */
         {
-            /* TODO: Handle error in application's state machine. */
             break;
         }
     }
