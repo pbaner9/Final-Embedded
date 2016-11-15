@@ -116,6 +116,7 @@ void MOTOR_Tasks ( void )
             // THis is where you will call your functions
             // SUDO Code
             // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
+            motorsData.timerCount= 0;
             while (motorsData.timerCount < 100 )
             {
                 moveleft();       
