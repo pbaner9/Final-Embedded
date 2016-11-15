@@ -13,6 +13,7 @@ void timerCallbackFunction(TimerHandle_t myTimer)
     timer's ID.  Obtain the count. */
     // TODO : Add a count Integer for Ticks.
     // ulCount = ( uint32_t ) pvTimerGetTimerID( xTimer );
+    timerCount++;
 }
 
 void MOTOR_Initialize ( void )
@@ -32,6 +33,7 @@ void MOTOR_Initialize ( void )
     }
     // Creation of Software Timer
     appData.myTimer = xTimerCreate("krc",(50/portTICK_PERIOD_MS),pdTRUE,(void*)0,timerCallbackFunction);
+    motorsData.timerCount = 0; // Sets the value for Increment to increase once the timer is Created and Started
     if(xTimerStart(appData.myTimer,10) != pdFAIL)  // Checks if Timer starts, if it does not will output Error Message
     {
         dbgOutputLoc('E');
@@ -110,6 +112,10 @@ void MOTOR_Tasks ( void )
             // THis is where you will call your functions
             // SUDO Code
             // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
+            while (motorsData.timerCount < 100 )
+            {
+                moveleft();       
+            }
             stopmotor();
             motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
             break;
