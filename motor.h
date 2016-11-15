@@ -2,10 +2,12 @@
 #define _MOTOR_H
 
 #include <stdint.h>
+#include "FreeRTOS.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "timers.h"
 #include "system_config.h"
 #include "system_definitions.h"
 
@@ -39,6 +41,7 @@ typedef struct
     char message[2];
     char type;
     int timerCount;
+    char direction;
     uint8_t data; //direction data
     
 } MOTOR_DATA;
