@@ -79,6 +79,10 @@ void MOTOR_Tasks ( void )
             // TODO:
             // Redirect and If statements Propertly
             // Add Code from UART for Server Commands
+            
+            //Remove
+            motorsData.direction = "L";
+            //
             if (motorsData.direction == "L")
             {
                 // Move to State for Left Direction
@@ -117,7 +121,12 @@ void MOTOR_Tasks ( void )
                 moveleft();       
             }
             stopmotor();
-            motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
+            
+            //Remove
+            motorsData.state = MOTOR_STATE_SERVICE_TASKS; 
+            //Remove
+            
+            //motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
             break;
         }
         case MotorRight:
