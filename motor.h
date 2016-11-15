@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "system_config.h"
 #include "system_definitions.h"
 
@@ -39,14 +40,15 @@ typedef struct
 //this is the global struct to add to motor queue
 MOTOR_DATA motorsData;
 
+void stopmotor(void);
+void moveright(void);
+void moveleft(void);
+void moveforward(void);
 
 void MOTOR_Initialize ( void );
 void MOTOR_Tasks( void );
 
-void MOTORS_Initialize (void);
-void MOTORS_Tasks (void);
-void processMotorCommands(void);
-void AssembleMotorCommands(char letter);
+
 
 #endif /* _MOTOR_H */
 
