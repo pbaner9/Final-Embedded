@@ -38,7 +38,7 @@ typedef struct
     /* TODO: Define any additional data used by the application. */
     char message[2];
     char type;
-    
+    int timerCount;
     uint8_t data; //direction data
     
 } MOTOR_DATA;
