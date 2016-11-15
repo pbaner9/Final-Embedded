@@ -30,6 +30,7 @@ typedef struct
     /* The application's current state */
     MOTOR_STATES state;
     QueueHandle_t myQueue;
+    TimerHandle_t myTimer;  // Creates a Timer for Motor Control
     /* TODO: Define any additional data used by the application. */
     char message[2];
     char type;
