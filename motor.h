@@ -21,7 +21,8 @@ typedef enum
 {
     /* Application's state machine's initial state. */
     MOTOR_STATE_INIT=0,
-    MOTOR_STATE_SERVICE_TASKS,        
+    MOTOR_STATE_SERVICE_TASKS,
+    MotorReceiveCommand,
     MotorMain,
     MotorForward,
     MotorBackward,

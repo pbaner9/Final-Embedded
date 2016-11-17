@@ -125,6 +125,7 @@ void IntHandlerDrvUsartInstance0()
             PLIB_INT_SourceDisable(INT_ID_0, INT_SOURCE_USART_1_RECEIVE);
             recChar = PLIB_USART_ReceiverByteReceive(USART_ID_1);
             dbgOutputVal (recChar);
+            xQueueSendFromISR(motorsData.myQueue,&recChar,NULL);
         }
     }
    //PLIB_INT_SourceDisable(INT_ID_0, INT_SOURCE_USART_1_TRANSMIT);
@@ -138,7 +139,7 @@ void IntHandlerDrvUsartInstance0()
     //DRV_USART_TasksReceive(sysObj.drvUsart0);
     //DRV_USART_TasksError(sysObj.drvUsart0);
 }
- 
+
  
  
 
