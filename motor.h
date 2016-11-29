@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "timers.h"
+#include "motor_timers.h"
 #include "system_config.h"
 #include "system_definitions.h"
 
@@ -37,7 +37,7 @@ typedef struct
     /* The application's current state */
     MOTOR_STATES state;
     QueueHandle_t myQueue;
-    TimerHandle_t myTimer;  // Creates a Timer for Motor Control
+    //TimerHandle_t myTimer;  // Creates a Timer for Motor Control
     /* TODO: Define any additional data used by the application. */
     char message[2];
     char type;
@@ -49,6 +49,8 @@ typedef struct
 //this is the global struct to add to motor queue
 MOTOR_DATA motorsData;
 
+void LeftMotorControl(bool movement);
+void RightMotorControl(bool movement);
 void stopmotor(void);
 void moveright(void);
 void moveleft(void);
