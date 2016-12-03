@@ -1,5 +1,5 @@
-#ifndef _EXAMPLE_FILE_NAME_H    /* Guard against multiple inclusion */
-#define _EXAMPLE_FILE_NAME_H
+#ifndef _TIMERS_H    /* Guard against multiple inclusion */
+#define _TIMERS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,7 +12,7 @@ extern "C" {
 #include "system_config.h"
 #include "system_definitions.h"
 #include "queue.h"
-#include "timers.h"
+#include "motor_timers.h"
     
 #define EXAMPLE_CONSTANT 0
 
