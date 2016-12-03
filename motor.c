@@ -1,26 +1,20 @@
 #include "motor.h"
-#include "timers.h"
+#include "motor_timers.h"
+#include "queue.h"
+#include "motor_timers.h"
 #include "peripheral/oc/plib_oc.h"
 
 #define LEFT_OSCILLATOR  OC_ID_2
 #define RIGHT_OSCILLATOR OC_ID_1
-#define PWM_MAX    10000   
+#define PWM_MAX    10000 
+#define PWM_TURN   4000
+#define PWM_STOP   0
 #define START_VALUE  9000
+#define ENCODER_VALUE 27
 
-void timerCallbackFunction(TimerHandle_t myTimer)
-{
-    /* The number of times this timer has expired is saved as the
-    timer's ID.  Obtain the count. */
-    // TODO : Add a count Integer for Ticks.
-    // ulCount = ( uint32_t ) pvTimerGetTimerID( xTimer );
-    motorsData.timerCount++;
-}
 
 void MOTOR_Initialize ( void )
 {
-    //forcing to open up port up for output (apparently Harmony has a problem setting this port to output)
-    PLIB_PORTS_PinDirectionOutputSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);   
-
     /* Place the App state machine in its initial state. */
     motorsData.state = MOTOR_STATE_INIT;
     motorsData.myQueue = xQueueCreate( 12, sizeof( char ) );
@@ -31,226 +25,262 @@ void MOTOR_Initialize ( void )
         // Need to make a function
         //break;
     }
-    // Creation of Software Timer
-    motorsData.myTimer = xTimerCreate("krc",(50/portTICK_PERIOD_MS),pdTRUE,(void*)0,timerCallbackFunction);
-    motorsData.timerCount = 0; // Sets the value for Increment to increase once the timer is Created and Started
-    if(xTimerStart(motorsData.myTimer,10) != pdFAIL)  // Checks if Timer starts, if it does not will output Error Message
-    {
-        dbgOutputLoc('E');
-    }
+    DRV_TMR0_Start();
+    // Creation of Software Timer     
+    timerInitialize();    
+    // Initalization of OC and Motors
+    initalizeOCandMotors();
+    // Initalization of Motor Values
+    initializeMotorValues(&motorsData.leftMotor);
+    initializeMotorValues(&motorsData.rightMotor);
 }
 
 void MOTOR_Tasks ( void )
 {
+
     switch ( motorsData.state )  /* Check the application's current state. */
     {
         case MOTOR_STATE_INIT:    /* Application's initial state. */
         {
             bool appInitialized = true;
+            //motorsData.direction = 'L';
             if (appInitialized)
             {
-                // motorsData.state = MotorTestCase;  // Uncomment if showing Test case and comment out line below
-                motorsData.state = MotorMain;
-
+                //motorsData.direction = 'L';  //Remove
+                //motorsData.state = MotorReceiveCommand;
+                motorsData.state = MotorReceiveCommand;
             }  break;
         }
-        //Test Is Moved
-        // If required copy this and place back
-        // If asked for Error Test Cases
-        /*case MotorTestCase:
-        {                 
-            sendThroughQueue('~', uartData.motorthread); // 0
-            sendThroughQueue('A', uartData.motorthread); // 1
-            sendThroughQueue('M', uartData.motorthread); // 2
-            sendThroughQueue('L', uartData.motorthread); // 3
-            sendThroughQueue(0, uartData.motorthread); // 4 -- 0 for now
-            sendThroughQueue(0, uartData.motorthread); // 5 -- 0 for now
-            sendThroughQueue(0, uartData.motorthread); // 6 -- 0 for now
-            sendThroughQueue('R', uartData.motorthread); // 7
-            sendThroughQueue(0, uartData.motorthread); // 8 -- 0 for now
-            sendThroughQueue(0, uartData.motorthread); // 9 -- 0 for now
-            sendThroughQueue(0, uartData.motorthread); // 10 -- 0 for now
-            sendThroughQueue('*', uartData.motorthread); // 11 
-            motorsData.state = MotorMain;
+        case MotorReceiveCommand:
+        {
+            char receivedchar;
+            if(!uxQueueMessagesWaitingFromISR(motorsData.myQueue) == 0)
+            {
+                xQueueReceive(motorsData.myQueue,&receivedchar,portMAX_DELAY);
+                motorsData.direction = receivedchar;
+                motorsData.state = MotorMain; 
+            }
         }
-        */
         case MotorMain:
-        {                 
-            // TODO:
-            // Redirect and If statements Propertly
-            // Add Code from UART for Server Commands
-            
-            //Remove
-            motorsData.direction = "L";
-            //
-            if (motorsData.direction == "L")
+        {
+            if (motorsData.direction == 'L')
             {
                 // Move to State for Left Direction
                 motorsData.state = MotorLeft;
             }
-            else if (motorsData.direction == "R")
+            else if (motorsData.direction == 'R')
             {
                 // Move to State for Right Direction
                 motorsData.state = MotorRight;
             }
-            else if (motorsData.direction == "F")
+            else if (motorsData.direction == 'F')
             {
                 // Move to State for Forward Direction
                 motorsData.state = MotorForward;
             }
-            else if (motorsData.direction == "B")
+            else if (motorsData.direction == 'B')
             {
                 // Move to State for Backwards Direction
                 motorsData.state = MotorBackward;
             }
-            else if (motorsData.direction == "S")
+            else if (motorsData.direction == 'S')
             {
                 // Move to State for Stopping the Vehicle
                 motorsData.state = MotorStop;
             }
-            
-            break;
         }
         case MotorLeft:
         {
-            // THis is where you will call your functions
-            // SUDO Code
-            // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
             motorsData.timerCount= 0;
-            while (motorsData.timerCount < 100 )
+            if(motorsData.timerCount == 0)
             {
-                moveleft();       
+                while (motorsData.timerCount < 27 )
+                {
+                    moveleft();      
+                }
             }
+//            else {
+//                motorsData.state = MotorMain;  // Moves back to main so nothing gets stuck.
+//            }
             stopmotor();
-            
-            //Remove
-            motorsData.state = MOTOR_STATE_SERVICE_TASKS; 
-            //Remove
-            
-            //motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
-            break;
+            motorsData.state = MotorReceiveCommand; 
+            //break;
         }
         case MotorRight:
         {
-            // THis is where you will call your functions
-            // SUDO Code
-            // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
+            motorsData.timerCount= 0;
+            if(motorsData.timerCount == 0)
+            {
+                while (motorsData.timerCount < 27 )
+                {
+                    moveright();      
+                }
+            }
             stopmotor();
-            motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
-            break;
+            motorsData.state = MotorReceiveCommand; 
+            //break;
         }
         case MotorBackward:
         {
-            // THis is where you will call your functions
-            // SUDO Code
-            // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
-            stopmotor();
-            motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
-            break;
+            motorsData.timerCount= 0;
+            if(motorsData.timerCount == 0)
+            {
+                while (motorsData.timerCount < 10 )
+                {
+                    moveback();      
+                }
+            }
+            //stopmotor();
+            motorsData.state = MotorReceiveCommand; 
+          //break;
         }      
         case MotorForward:
         {
-            // THis is where you will call your functions
-            // SUDO Code
-            // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
-            stopmotor();
-            motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
-            break;
+            motorsData.timerCount= 0;
+            if(motorsData.timerCount == 0)
+            {
+                while (motorsData.timerCount < 10 )
+                {
+                    moveforward();      
+                }
+            }
+            //stopmotor();
+            motorsData.state = MotorReceiveCommand; 
+            //break;
         }
             
         case MotorStop:
         {
-            // THis is where you will call your functions
-            // SUDO Code
-            // while ([timertickcount]  < 100 ) {  // Do your functions // Move Left };
-            stopmotor();
-            motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
-            break;
+            motorsData.timerCount= 0;
+            if(motorsData.timerCount == 0)
+            {
+                while (motorsData.timerCount < 15 )
+                {
+                    stopmotor();      
+                }
+            }
+            //stopmotor();
+            //motorsData.direction = 'L';
+            motorsData.state = MotorReceiveCommand;  // Sends it back to main state to receive next direction
+            ///break;
         }
 
  
         case MOTOR_STATE_SERVICE_TASKS:
         {
-        
-            break;
-        }
-        default:  /* TODO: Handle error in application's state machine. */
-        {
+            stopmotor();
             break;
         }
     }
 }
-
-// Stopping both motors
-void stopmotor(void) {
-    
-    //pin config
-    PLIB_OC_Enable(LEFT_OSCILLATOR);
-    PLIB_OC_Enable(RIGHT_OSCILLATOR);
-    
-    //left motor
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1);
-    
-    //right motor
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1);
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
-
+void initializeMotorValues (motorValues* motor)
+{
+    motor->maxValue = PWM_MAX;
+    motor->stopValue = PWM_STOP;
+    motor->turnValue = PWM_TURN;
+    motor->ExpectedEncoder = ENCODER_VALUE;
+    motor->encoderValue = 0;
+    motor->oldEncoderValue = 0;
 }
 
-void moveright(void)
+void incrementLeftMotor()
 {
-    //pin config
-    PLIB_OC_Disable(LEFT_OSCILLATOR);
+    motorsData.leftMotor.encoderValue++;
+}
+void incrementRightMotor()
+{
+    motorsData.rightMotor.encoderValue++;
+}
+void initalizeOCandMotors()
+{
+    // Initalizes the OC Drivers
+    PLIB_OC_Enable(LEFT_OSCILLATOR);
     PLIB_OC_Enable (RIGHT_OSCILLATOR);
-    
-     //left motor
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_0);
-    
-    //right motor 
+    // Start the OC drivers
+    DRV_OC0_Start();
+    DRV_OC1_Start();
+    //DRV_TMR1_Start();
+    // Attempts to Change Timer Setting to better control the motors
+    PLIB_TMR_Period16BitSet(TMR_ID_2,600);
+    //forcing to open up port up for output (apparently Harmony has a problem setting this port to output)
+    PLIB_PORTS_PinDirectionOutputSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
+    PLIB_PORTS_PinDirectionOutputSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
+    // Sets the pins to One
     PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1);
-    
+    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
+    // Initalizes the Pulse Modulation to be Zero and Turned off until a command is given
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, PWM_STOP);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, PWM_STOP);  
 }
 
-void moveleft(void)
-{
-    //pin config
-    PLIB_OC_Enable(LEFT_OSCILLATOR);
-    PLIB_OC_Disable(RIGHT_OSCILLATOR);
-    
-     //left motor
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_0);
-    
-    //right motor 
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1);
-    
+void LeftMotorControl(bool movement)
+{   //Pin 78 // RG1  // Which is pin 34 on Motor Shield 
+    if(movement == true)
+    {   // This will clear the direction pin and tell the motor to move forward
+        //PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1); 
+        SYS_PORTS_PinWrite(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1,0);
     }
-
-void moveforward(void)
-{
-     //left motor
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_0);
-    
-    //right motor 
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1);
+    else
+    {   // This will set a 1 to direction pin and Reverse the Motor
+        //PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1); 
+        SYS_PORTS_PinWrite(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1,1);
+ 
+    }
 }
 
 
-void moveback(void) //NEEDS TO BE TESTED
+void RightMotorControl (bool movement)
+{   //Pin 4 // RC14  // Which is pin 4 on Motor Shield 
+    if(movement == true)
+    {   // This will clear the direction pin and tell the motor to move forward
+        //PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14); 
+        SYS_PORTS_PinWrite(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14,0);
+    }
+    else
+    {   // This will set a 1 to direction pin and Reverse the Motor
+        //PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
+        SYS_PORTS_PinWrite(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14,1);
+ 
+    }
+}
+// Stopping both motors
+void stopmotor() { 
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, PWM_STOP);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, PWM_STOP); 
+}
+
+void moveright()
 {
-    //left motor
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_0);
+    LeftMotorControl(false);
+    RightMotorControl(true);
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, motorsData.leftMotor.maxValue);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, motorsData.rightMotor.turnValue);
+}
+
+void moveleft()
+{
+    LeftMotorControl(true);
+    RightMotorControl(false);
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, motorsData.leftMotor.turnValue);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, motorsData.rightMotor.maxValue);
     
-    //right motor 
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1);
+}
+
+void moveforward()
+{
+    LeftMotorControl(true);
+    RightMotorControl(true);
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, motorsData.leftMotor.maxValue);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, motorsData.rightMotor.maxValue);
+}
+
+
+void moveback() //NEEDS TO BE TESTED
+{
+    LeftMotorControl(false);
+    RightMotorControl(false);
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, motorsData.leftMotor.maxValue);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, motorsData.rightMotor.maxValue);
 }
 
  

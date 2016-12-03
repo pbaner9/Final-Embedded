@@ -97,7 +97,7 @@ void UART_Tasks ( void )
                 IntHandlerDrvUsartInstance0();
             }
               uartData.state = UART_STATE_SERVICE_TASKS_4;
-//            //break;
+              //break;
         }
         
         case UART_STATE_SERVICE_TASKS_4:
