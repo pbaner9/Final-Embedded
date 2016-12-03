@@ -6,17 +6,15 @@
 
 #define LEFT_OSCILLATOR  OC_ID_2
 #define RIGHT_OSCILLATOR OC_ID_1
-#define PWM_MAX    10000   
+#define PWM_MAX    10000 
+#define PWM_TURN   4000
+#define PWM_STOP   0
 #define START_VALUE  9000
-
+#define ENCODER_VALUE 27
 
 
 void MOTOR_Initialize ( void )
 {
-    //forcing to open up port up for output (apparently Harmony has a problem setting this port to output)
-    PLIB_PORTS_PinDirectionOutputSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
-    PLIB_PORTS_PinDirectionOutputSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
-
     /* Place the App state machine in its initial state. */
     motorsData.state = MOTOR_STATE_INIT;
     motorsData.myQueue = xQueueCreate( 12, sizeof( char ) );
@@ -27,22 +25,14 @@ void MOTOR_Initialize ( void )
         // Need to make a function
         //break;
     }
-    // Creation of Software Timer
-    
-//    motorsData.myTimer = xTimerCreate("Timer",(5/portTICK_PERIOD_MS),pdTRUE,(void*)2,timerCallbackFunction);
-//    xTimerStart(motorsData.myTimer, 0);
-//    motorsData.timerCount = 0; // Sets the value for Increment to increase once the timer is Created and Started
-//    if(xTimerStart(motorsData.myTimer,10) != pdFAIL)  // Checks if Timer starts, if it does not will output Error Message
-//    {
-//        dbgOutputLoc('E');
-//    }
-//    
-    timerInitialize();
-    PLIB_OC_Enable(LEFT_OSCILLATOR);
-    PLIB_OC_Enable (RIGHT_OSCILLATOR);
     DRV_TMR0_Start();
-    
-    PLIB_TMR_Period16BitSet(TMR_ID_2,600);
+    // Creation of Software Timer     
+    timerInitialize();    
+    // Initalization of OC and Motors
+    initalizeOCandMotors();
+    // Initalization of Motor Values
+    initializeMotorValues(&motorsData.leftMotor);
+    initializeMotorValues(&motorsData.rightMotor);
 }
 
 void MOTOR_Tasks ( void )
@@ -53,12 +43,12 @@ void MOTOR_Tasks ( void )
         case MOTOR_STATE_INIT:    /* Application's initial state. */
         {
             bool appInitialized = true;
-            motorsData.direction = 'F';
+            //motorsData.direction = 'L';
             if (appInitialized)
             {
                 //motorsData.direction = 'L';  //Remove
                 //motorsData.state = MotorReceiveCommand;
-                motorsData.state = MotorMain;
+                motorsData.state = MotorReceiveCommand;
             }  break;
         }
         case MotorReceiveCommand:
@@ -102,66 +92,76 @@ void MOTOR_Tasks ( void )
         case MotorLeft:
         {
             motorsData.timerCount= 0;
-            while (motorsData.timerCount < 330 )
+            if(motorsData.timerCount == 0)
             {
-                LeftMotorControl(true);
-                RightMotorControl(false);
-                //moveleft();      
+                while (motorsData.timerCount < 27 )
+                {
+                    moveleft();      
+                }
             }
-            
-            motorsData.state = MotorRight; 
+//            else {
+//                motorsData.state = MotorMain;  // Moves back to main so nothing gets stuck.
+//            }
+            stopmotor();
+            motorsData.state = MotorReceiveCommand; 
             //break;
         }
         case MotorRight:
         {
             motorsData.timerCount= 0;
-            while (motorsData.timerCount < 330 )
+            if(motorsData.timerCount == 0)
             {
-                LeftMotorControl(false);
-                RightMotorControl(true);
-                moveright();
+                while (motorsData.timerCount < 27 )
+                {
+                    moveright();      
+                }
             }
-            motorsData.state = MotorBackward; 
+            stopmotor();
+            motorsData.state = MotorReceiveCommand; 
             //break;
         }
         case MotorBackward:
         {
             motorsData.timerCount= 0;
-//            while (motorsData.timerCount < 330 )
-//            {
-//                moveback();
-//                LeftMotorControl(false);
-//                RightMotorControl(false);
-//            }
-            LeftMotorControl(false);
-            RightMotorControl(false);
-            //motorsData.state = MotorForward; 
+            if(motorsData.timerCount == 0)
+            {
+                while (motorsData.timerCount < 10 )
+                {
+                    moveback();      
+                }
+            }
+            //stopmotor();
+            motorsData.state = MotorReceiveCommand; 
           //break;
         }      
         case MotorForward:
         {
             motorsData.timerCount= 0;
-//            while (motorsData.timerCount < 630 )
-//            {
-//                LeftMotorControl(true);
-//                RightMotorControl(true);
-//                //moveforward();
-//            }
-            LeftMotorControl(true);
-            RightMotorControl(true);
-            //motorsData.state = MotorStop; 
+            if(motorsData.timerCount == 0)
+            {
+                while (motorsData.timerCount < 10 )
+                {
+                    moveforward();      
+                }
+            }
+            //stopmotor();
+            motorsData.state = MotorReceiveCommand; 
             //break;
         }
             
         case MotorStop:
         {
             motorsData.timerCount= 0;
-            while (motorsData.timerCount < 630 )
+            if(motorsData.timerCount == 0)
             {
-                stopmotor();       
+                while (motorsData.timerCount < 15 )
+                {
+                    stopmotor();      
+                }
             }
-            stopmotor();
-            motorsData.state = MotorMain;  // Sends it back to main state to receive next direction
+            //stopmotor();
+            //motorsData.direction = 'L';
+            motorsData.state = MotorReceiveCommand;  // Sends it back to main state to receive next direction
             ///break;
         }
 
@@ -171,97 +171,116 @@ void MOTOR_Tasks ( void )
             stopmotor();
             break;
         }
-        default:  /* TODO: Handle error in application's state machine. */
-        {
-            stopmotor();
-            break;
-        }
     }
+}
+void initializeMotorValues (motorValues* motor)
+{
+    motor->maxValue = PWM_MAX;
+    motor->stopValue = PWM_STOP;
+    motor->turnValue = PWM_TURN;
+    motor->ExpectedEncoder = ENCODER_VALUE;
+    motor->encoderValue = 0;
+    motor->oldEncoderValue = 0;
+}
+
+void incrementLeftMotor()
+{
+    motorsData.leftMotor.encoderValue++;
+}
+void incrementRightMotor()
+{
+    motorsData.rightMotor.encoderValue++;
+}
+void initalizeOCandMotors()
+{
+    // Initalizes the OC Drivers
+    PLIB_OC_Enable(LEFT_OSCILLATOR);
+    PLIB_OC_Enable (RIGHT_OSCILLATOR);
+    // Start the OC drivers
+    DRV_OC0_Start();
+    DRV_OC1_Start();
+    //DRV_TMR1_Start();
+    // Attempts to Change Timer Setting to better control the motors
+    PLIB_TMR_Period16BitSet(TMR_ID_2,600);
+    //forcing to open up port up for output (apparently Harmony has a problem setting this port to output)
+    PLIB_PORTS_PinDirectionOutputSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
+    PLIB_PORTS_PinDirectionOutputSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
+    // Sets the pins to One
+    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
+    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
+    // Initalizes the Pulse Modulation to be Zero and Turned off until a command is given
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, PWM_STOP);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, PWM_STOP);  
 }
 
 void LeftMotorControl(bool movement)
 {   //Pin 78 // RG1  // Which is pin 34 on Motor Shield 
     if(movement == true)
     {   // This will clear the direction pin and tell the motor to move forward
-        PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);  
+        //PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1); 
+        SYS_PORTS_PinWrite(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1,0);
     }
     else
     {   // This will set a 1 to direction pin and Reverse the Motor
-        PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);  
+        //PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1); 
+        SYS_PORTS_PinWrite(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1,1);
  
     }
 }
+
 
 void RightMotorControl (bool movement)
 {   //Pin 4 // RC14  // Which is pin 4 on Motor Shield 
     if(movement == true)
     {   // This will clear the direction pin and tell the motor to move forward
-        PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);  
+        //PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14); 
+        SYS_PORTS_PinWrite(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14,0);
     }
     else
     {   // This will set a 1 to direction pin and Reverse the Motor
-        PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);  
+        //PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
+        SYS_PORTS_PinWrite(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14,1);
  
     }
 }
 // Stopping both motors
 void stopmotor() { 
-    PLIB_OC_Enable(LEFT_OSCILLATOR);
-    PLIB_OC_Enable (RIGHT_OSCILLATOR);
-    PLIB_OC_PulseWidth16BitSet(0, 0);
-    PLIB_OC_PulseWidth16BitSet(1, 0); 
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, PWM_STOP);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, PWM_STOP); 
 }
 
 void moveright()
 {
-    PLIB_OC_Enable(LEFT_OSCILLATOR);
-    PLIB_OC_Enable(RIGHT_OSCILLATOR);
-    SYS_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
-    SYS_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_0);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1);
-    
-    PLIB_OC_PulseWidth16BitSet(0, 2000);
-    PLIB_OC_PulseWidth16BitSet(1, 2000); 
+    LeftMotorControl(false);
+    RightMotorControl(true);
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, motorsData.leftMotor.maxValue);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, motorsData.rightMotor.turnValue);
 }
 
 void moveleft()
 {
-    PLIB_OC_Enable(LEFT_OSCILLATOR);
-    PLIB_OC_Enable (RIGHT_OSCILLATOR);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
-    PLIB_PORTS_PinClear(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_0);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1);
-    PLIB_OC_PulseWidth16BitSet(0, 2000);
-    PLIB_OC_PulseWidth16BitSet(1, 2000);
+    LeftMotorControl(true);
+    RightMotorControl(false);
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, motorsData.leftMotor.turnValue);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, motorsData.rightMotor.maxValue);
     
 }
 
 void moveforward()
 {
-    PLIB_OC_Enable(LEFT_OSCILLATOR);
-    PLIB_OC_Enable (RIGHT_OSCILLATOR);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_0);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1);
-    
-    PLIB_OC_PulseWidth16BitSet(0, 2000);
-    PLIB_OC_PulseWidth16BitSet(1, 2000);
+    LeftMotorControl(true);
+    RightMotorControl(true);
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, motorsData.leftMotor.maxValue);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, motorsData.rightMotor.maxValue);
 }
 
 
 void moveback() //NEEDS TO BE TESTED
 {
-    PLIB_OC_Enable(LEFT_OSCILLATOR);
-    PLIB_OC_Enable (RIGHT_OSCILLATOR);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_G, PORTS_BIT_POS_1);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_C, PORTS_BIT_POS_14);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_0);
-    PLIB_PORTS_PinSet(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_1);
-    PLIB_OC_PulseWidth16BitSet(0, 2000);
-    PLIB_OC_PulseWidth16BitSet(1, 2000);
+    LeftMotorControl(false);
+    RightMotorControl(false);
+    PLIB_OC_PulseWidth16BitSet(LEFT_OSCILLATOR, motorsData.leftMotor.maxValue);
+    PLIB_OC_PulseWidth16BitSet(RIGHT_OSCILLATOR, motorsData.rightMotor.maxValue);
 }
 
  
